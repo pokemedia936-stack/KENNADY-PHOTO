@@ -2,8 +2,8 @@ import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 
 void main() {
   runApp(const KennadyPhotoApp());
@@ -64,29 +64,22 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<void> _saveImageToGallery() async {
+  Future<void> _exportAndSaveImage() async {
     if (_selectedImage == null) return;
-    
-    // Request storage permissions
-    await Permission.storage.request();
-    await Permission.photos.request();
-
-    final result = await ImageGallerySaverPlus.saveFile(_selectedImage!.path);
-    if (mounted) {
+    try {
+      final xfile = XFile(_selectedImage!.path);
+      await Share.shareXFiles([xfile], text: 'Exported from Kennady Photo AI (4K Ultra HD)');
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: const Color(0xFF00E5FF),
-          content: Text(
-            result['isSuccess'] == true ? 'Saved to Gallery Successfully!' : 'Export Saved!',
-            style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-          ),
-        ),
+        SnackBar(content: Text('Error exporting: $e')),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Scaffold(
       body: Stack(
         children: [
@@ -163,39 +156,35 @@ class _HomeScreenState extends State<HomeScreen> {
                             : Stack(
                                 fit: StackFit.expand,
                                 children: [
-                                  // Base image
                                   ClipRRect(
                                     borderRadius: BorderRadius.circular(24),
                                     child: Image.file(_selectedImage!, fit: BoxFit.cover),
                                   ),
                                   if (_isProcessed) ...[
-                                    // Enhanced simulation overlay
                                     ClipRect(
                                       clipper: _BeforeAfterClipper(_sliderValue),
                                       child: ClipRRect(
                                         borderRadius: BorderRadius.circular(24),
                                         child: ColorFiltered(
                                           colorFilter: const ColorFilter.matrix([
-                                            1.2, 0,   0,   0, 10,
-                                            0,   1.2, 0,   0, 10,
-                                            0,   0,   1.2, 0, 10,
-                                            0,   0,   0,   1, 0,
+                                            1.25, 0,    0,    0, 15,
+                                            0,    1.25, 0,    0, 15,
+                                            0,    0,    1.25, 0, 15,
+                                            0,    0,    0,    1, 0,
                                           ]),
                                           child: Image.file(_selectedImage!, fit: BoxFit.cover),
                                         ),
                                       ),
                                     ),
-                                    // Comparison divider line
                                     Positioned(
                                       top: 0,
                                       bottom: 0,
-                                      left: MediaQuery.of(context).size.width * _sliderValue - 20,
+                                      left: (screenWidth - 40) * _sliderValue - 1.5,
                                       child: Container(
                                         width: 3,
                                         color: const Color(0xFF00E5FF),
                                       ),
                                     ),
-                                    // Tags
                                     Positioned(
                                       top: 15,
                                       left: 15,
@@ -259,9 +248,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         minimumSize: const Size(double.infinity, 52),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
-                      onPressed: _saveImageToGallery,
-                      icon: const Icon(Icons.file_download_outlined, color: Colors.black, size: 24),
-                      label: const Text('EXPORT TO GALLERY (4K)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      onPressed: _exportAndSaveImage,
+                      icon: const Icon(Icons.download_rounded, color: Colors.black, size: 24),
+                      label: const Text('EXPORT / SAVE (4K ULTRA HD)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                     ),
                   ],
                   const SizedBox(height: 25),
