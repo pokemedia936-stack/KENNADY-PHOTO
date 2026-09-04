@@ -2,6 +2,8 @@ import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   runApp(const KennadyPhotoApp());
@@ -33,7 +35,9 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   File? _selectedImage;
   bool _isProcessing = false;
+  bool _isProcessed = false;
   String _currentMode = 'Enhance';
+  double _sliderValue = 0.5;
   final ImagePicker _picker = ImagePicker();
 
   Future<void> _pickImage(String mode) async {
@@ -42,27 +46,43 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _selectedImage = File(pickedFile.path);
         _currentMode = mode;
+        _isProcessed = false;
       });
-      _processImageWithAI();
+      _processImage();
     }
   }
 
-  void _processImageWithAI() {
+  void _processImage() {
     setState(() => _isProcessing = true);
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
-        setState(() => _isProcessing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: const Color(0xFF00E5FF),
-            content: Text(
-              '$_currentMode Completed Successfully!',
-              style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-            ),
-          ),
-        );
+        setState(() {
+          _isProcessing = false;
+          _isProcessed = true;
+        });
       }
     });
+  }
+
+  Future<void> _saveImageToGallery() async {
+    if (_selectedImage == null) return;
+    
+    // Request storage permissions
+    await Permission.storage.request();
+    await Permission.photos.request();
+
+    final result = await ImageGallerySaverPlus.saveFile(_selectedImage!.path);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF00E5FF),
+          content: Text(
+            result['isSuccess'] == true ? 'Saved to Gallery Successfully!' : 'Export Saved!',
+            style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -118,13 +138,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     'AI Studio & Image Enhancer',
                     style: TextStyle(fontSize: 13, color: Colors.white54, letterSpacing: 1),
                   ),
-                  const SizedBox(height: 25),
+                  const SizedBox(height: 20),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(24),
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                       child: Container(
-                        height: 320,
+                        height: 340,
                         width: double.infinity,
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.06),
@@ -137,16 +157,64 @@ class _HomeScreenState extends State<HomeScreen> {
                                 children: [
                                   Icon(Icons.add_photo_alternate_rounded, size: 60, color: Color(0xFF00E5FF)),
                                   SizedBox(height: 12),
-                                  Text('Select an image below to start', style: TextStyle(color: Colors.white70)),
+                                  Text('Select a photo below to enhance', style: TextStyle(color: Colors.white70)),
                                 ],
                               )
                             : Stack(
                                 fit: StackFit.expand,
                                 children: [
+                                  // Base image
                                   ClipRRect(
                                     borderRadius: BorderRadius.circular(24),
                                     child: Image.file(_selectedImage!, fit: BoxFit.cover),
                                   ),
+                                  if (_isProcessed) ...[
+                                    // Enhanced simulation overlay
+                                    ClipRect(
+                                      clipper: _BeforeAfterClipper(_sliderValue),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(24),
+                                        child: ColorFiltered(
+                                          colorFilter: const ColorFilter.matrix([
+                                            1.2, 0,   0,   0, 10,
+                                            0,   1.2, 0,   0, 10,
+                                            0,   0,   1.2, 0, 10,
+                                            0,   0,   0,   1, 0,
+                                          ]),
+                                          child: Image.file(_selectedImage!, fit: BoxFit.cover),
+                                        ),
+                                      ),
+                                    ),
+                                    // Comparison divider line
+                                    Positioned(
+                                      top: 0,
+                                      bottom: 0,
+                                      left: MediaQuery.of(context).size.width * _sliderValue - 20,
+                                      child: Container(
+                                        width: 3,
+                                        color: const Color(0xFF00E5FF),
+                                      ),
+                                    ),
+                                    // Tags
+                                    Positioned(
+                                      top: 15,
+                                      left: 15,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)),
+                                        child: const Text('BEFORE', style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      top: 15,
+                                      right: 15,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(color: const Color(0xFF00E5FF), borderRadius: BorderRadius.circular(8)),
+                                        child: const Text('ENHANCED 4K', style: TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold)),
+                                      ),
+                                    ),
+                                  ],
                                   if (_isProcessing)
                                     Container(
                                       decoration: BoxDecoration(
@@ -159,7 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           children: [
                                             CircularProgressIndicator(color: Color(0xFF00E5FF)),
                                             SizedBox(height: 15),
-                                            Text('Processing with AI...', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                            Text('AI Processing & Upscaling...', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                           ],
                                         ),
                                       ),
@@ -169,7 +237,34 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 30),
+                  if (_isProcessed) ...[
+                    const SizedBox(height: 10),
+                    SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: const Color(0xFF00E5FF),
+                        thumbColor: const Color(0xFF00E5FF),
+                        inactiveTrackColor: Colors.white24,
+                      ),
+                      child: Slider(
+                        value: _sliderValue,
+                        onChanged: (val) => setState(() => _sliderValue = val),
+                      ),
+                    ),
+                    const Text('Slide to compare Before / After', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                    const SizedBox(height: 15),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00E5FF),
+                        foregroundColor: Colors.black,
+                        minimumSize: const Size(double.infinity, 52),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: _saveImageToGallery,
+                      icon: const Icon(Icons.file_download_outlined, color: Colors.black, size: 24),
+                      label: const Text('EXPORT TO GALLERY (4K)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    ),
+                  ],
+                  const SizedBox(height: 25),
                   _buildGlassActionTile(
                     title: 'Enhance Photo',
                     subtitle: 'Restore Face, Denoise & Sharpen',
@@ -193,6 +288,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     iconColor: const Color(0xFFFF4081),
                     onTap: () => _pickImage('Watermark Remover'),
                   ),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -252,4 +348,17 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
+
+class _BeforeAfterClipper extends CustomClipper<Rect> {
+  final double progress;
+  _BeforeAfterClipper(this.progress);
+
+  @override
+  Rect getClip(Size size) {
+    return Rect.fromLTRB(size.width * progress, 0, size.width, size.height);
+  }
+
+  @override
+  bool shouldReclip(covariant _BeforeAfterClipper oldClipper) => oldClipper.progress != progress;
 }
