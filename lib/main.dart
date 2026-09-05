@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
@@ -66,7 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       switch (toolKey) {
         case 'bw_to_color':
-          // Colorize algorithm: boost saturation, warm tone curves
+          // Colorize: Boost saturation and warm curve balance
           processed = img.adjustColor(
             decoded,
             saturation: 1.55,
@@ -76,7 +75,7 @@ class _HomeScreenState extends State<HomeScreen> {
           break;
 
         case 'sharpen':
-          // Sharpen & detail unsharp mask algorithm
+          // High-pass sharpening convolution
           processed = img.convolution(decoded, filter: [
             0, -1, 0,
             -1, 5, -1,
@@ -86,7 +85,7 @@ class _HomeScreenState extends State<HomeScreen> {
           break;
 
         case 'upscale':
-          // 4K Ultra resolution bicubic scaling
+          // 4K Ultra high-resolution bicubic upscaling
           int targetWidth = (decoded.width * 2).clamp(1080, 3840);
           processed = img.copyResize(
             decoded,
@@ -102,7 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         case 'enhance':
         default:
-          // Restore details, denoise simulation, sharpen & auto contrast
+          // Contrast, brightness, saturation restoration & edge filter
           processed = img.adjustColor(
             decoded,
             contrast: 1.22,
@@ -195,10 +194,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          ui.BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: 90, sigmaY: 90),
-            child: const SizedBox.expand(),
-          ),
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -221,7 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Image Viewer / Comparison Area
+                  // Image Comparison Area
                   ClipRRect(
                     borderRadius: BorderRadius.circular(24),
                     child: Container(
@@ -264,7 +259,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     left: 15,
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(color: Colors.black75, borderRadius: BorderRadius.circular(8)),
+                                      decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(8)),
                                       child: const Text('BEFORE', style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
                                     ),
                                   ),
@@ -297,7 +292,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
 
-                  // Interactive Slider & Export Button
+                  // Comparison Slider & Export Button
                   if (_processedBytes != null) ...[
                     const SizedBox(height: 10),
                     SliderTheme(
