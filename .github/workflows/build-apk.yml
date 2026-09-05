@@ -23,13 +23,17 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Generate Android Project Files
-        run: flutter create . --platforms=android --org com.kennady.photo
+      - name: Recreate Clean Android Structure
+        run: |
+          rm -rf android
+          flutter create . --platforms=android --org com.kennady.photo
+          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/g' android/app/build.gradle || true
+          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' android/app/build.gradle || true
 
       - name: Get Dependencies
         run: flutter pub get
 
-      - name: Build APK
+      - name: Build Release APK
         run: flutter build apk --release
 
       - name: Upload APK Artifact
