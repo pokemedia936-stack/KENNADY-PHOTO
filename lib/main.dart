@@ -3,8 +3,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
-import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 
 void main() {
@@ -65,7 +63,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
       switch (toolKey) {
         case 'bw_to_color':
-          // Colorize: Boost saturation and warm curve balance
           processed = img.adjustColor(
             decoded,
             saturation: 1.55,
@@ -75,7 +72,6 @@ class _HomeScreenState extends State<HomeScreen> {
           break;
 
         case 'sharpen':
-          // High-pass sharpening convolution
           processed = img.convolution(decoded, filter: [
             0, -1, 0,
             -1, 5, -1,
@@ -85,7 +81,6 @@ class _HomeScreenState extends State<HomeScreen> {
           break;
 
         case 'upscale':
-          // 4K Ultra high-resolution bicubic upscaling
           int targetWidth = (decoded.width * 2).clamp(1080, 3840);
           processed = img.copyResize(
             decoded,
@@ -101,7 +96,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
         case 'enhance':
         default:
-          // Contrast, brightness, saturation restoration & edge filter
           processed = img.adjustColor(
             decoded,
             contrast: 1.22,
@@ -137,30 +131,42 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _exportToGallery() async {
     if (_processedBytes == null) return;
 
-    await Permission.storage.request();
-    await Permission.photos.request();
+    try {
+      Directory? directory;
+      if (Platform.isAndroid) {
+        directory = Directory('/storage/emulated/0/Pictures/KennadyPhoto');
+        if (!await directory.exists()) {
+          directory = await Directory('/storage/emulated/0/Download').exists()
+              ? Directory('/storage/emulated/0/Download')
+              : await getExternalStorageDirectory();
+        }
+      } else {
+        directory = await getApplicationDocumentsDirectory();
+      }
 
-    final tempDir = await getTemporaryDirectory();
-    final fileName = 'KENNADY_${DateTime.now().millisecondsSinceEpoch}.jpg';
-    final savedFile = File('${tempDir.path}/$fileName');
-    await savedFile.writeAsBytes(_processedBytes!);
+      final fileName = 'KENNADY_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final savedFile = File('${directory?.path}/$fileName');
+      await savedFile.writeAsBytes(_processedBytes!);
 
-    final result = await ImageGallerySaverPlus.saveFile(savedFile.path);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: const Color(0xFF00E5FF),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          content: Text(
-            result['isSuccess'] == true
-                ? 'Exported & Saved to Gallery!'
-                : 'Saved: $fileName',
-            style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF00E5FF),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            content: Text(
+              'Exported Successfully: $fileName',
+              style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+            ),
           ),
-        ),
-      );
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Save error: $e')),
+        );
+      }
     }
   }
 
@@ -169,7 +175,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Background ambient glows
           Positioned(
             top: -60,
             left: -60,
@@ -216,7 +221,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Image Comparison Area
+                  // Image Comparison Box
                   ClipRRect(
                     borderRadius: BorderRadius.circular(24),
                     child: Container(
@@ -292,7 +297,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
 
-                  // Comparison Slider & Export Button
+                  // Slider & Export
                   if (_processedBytes != null) ...[
                     const SizedBox(height: 10),
                     SliderTheme(
@@ -323,7 +328,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   const SizedBox(height: 25),
 
-                  // Menu 1: Photo Enhancer
+                  // 1. Face & Photo Enhancer
                   _buildGlassTile(
                     title: 'Face & Photo Enhancer',
                     subtitle: 'Restore details, denoise & clarity balance',
@@ -333,7 +338,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Menu 2: Sharpen & De-blur
+                  // 2. Sharpen & De-Blur
                   _buildGlassTile(
                     title: 'Sharpen & De-Blur',
                     subtitle: 'Eliminate motion blur & high edge definition',
@@ -343,7 +348,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Menu 3: B&W to Colour
+                  // 3. B&W to Colour
                   _buildGlassTile(
                     title: 'B&W to Colour Restoration',
                     subtitle: 'Infuse vintage monochrome with vibrant hues',
@@ -353,7 +358,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Menu 4: 4K Super Upscale
+                  // 4. 4K Ultra Upscale
                   _buildGlassTile(
                     title: '4K Ultra Resolution Upscale',
                     subtitle: 'High-density pixel upscaling up to 3840px',
@@ -363,7 +368,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Menu 5: Watermark Remover
+                  // 5. Watermark Remover
                   _buildGlassTile(
                     title: 'Watermark & Stamp Eraser',
                     subtitle: 'Blend background over stamps & logos',
